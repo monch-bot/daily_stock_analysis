@@ -259,6 +259,16 @@ class StockAnalysisPipeline:
             # Step 7: 调用 AI 分析（传入增强的上下文和新闻）
             result = self.analyzer.analyze(enhanced_context, news_context=news_context)
             
+            # 保存分析结果到数据库
+            if result:
+                try:
+                    if self.db.save_analysis_result(result):
+                        logger.info(f"[{code}] 分析结果已保存到数据库")
+                    else:
+                        logger.warning(f"[{code}] 分析结果保存失败")
+                except Exception as e:
+                    logger.error(f"[{code}] 保存分析结果异常: {e}")
+            
             return result
             
         except Exception as e:

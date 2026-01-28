@@ -120,6 +120,120 @@ class StockDaily(Base):
         }
 
 
+class AnalysisResultDB(Base):
+    """
+    分析结果数据模型
+    
+    存储 AI 分析结果，包括决策仪表盘和详细分析
+    """
+    __tablename__ = 'analysis_results'
+    
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # 股票信息
+    code = Column(String(10), nullable=False, index=True)
+    name = Column(String(50))
+    
+    # 核心指标
+    sentiment_score = Column(Integer)  # 综合评分 0-100
+    trend_prediction = Column(String(20))  # 趋势预测
+    operation_advice = Column(String(20))  # 操作建议
+    confidence_level = Column(String(10))  # 置信度
+    
+    # 决策仪表盘（JSON 格式）
+    dashboard = Column(String)  # 存储完整的决策仪表盘 JSON
+    
+    # 走势分析
+    trend_analysis = Column(String)
+    short_term_outlook = Column(String)
+    medium_term_outlook = Column(String)
+    
+    # 技术面分析
+    technical_analysis = Column(String)
+    ma_analysis = Column(String)
+    volume_analysis = Column(String)
+    pattern_analysis = Column(String)
+    
+    # 基本面分析
+    fundamental_analysis = Column(String)
+    sector_position = Column(String)
+    company_highlights = Column(String)
+    
+    # 情绪面/消息面分析
+    news_summary = Column(String)
+    market_sentiment = Column(String)
+    hot_topics = Column(String)
+    
+    # 综合分析
+    analysis_summary = Column(String)
+    key_points = Column(String)
+    risk_warning = Column(String)
+    buy_reason = Column(String)
+    
+    # 元数据
+    raw_response = Column(String)  # 原始响应（调试用）
+    search_performed = Column(Integer, default=0)  # 是否执行了联网搜索
+    data_sources = Column(String)  # 数据来源说明
+    success = Column(Integer, default=1)  # 是否成功
+    error_message = Column(String)  # 错误信息
+    
+    # 创建时间
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    
+    # 唯一约束：同一股票同一天只保留最新分析
+    __table_args__ = (
+        Index('ix_code_created', 'code', 'created_at'),
+    )
+    
+    def __repr__(self):
+        return f"<AnalysisResultDB(code={self.code}, name={self.name}, advice={self.operation_advice})>"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        import json
+        
+        dashboard_dict = None
+        if self.dashboard:
+            try:
+                dashboard_dict = json.loads(self.dashboard)
+            except:
+                pass
+        
+        return {
+            'id': self.id,
+            'code': self.code,
+            'name': self.name,
+            'sentiment_score': self.sentiment_score,
+            'trend_prediction': self.trend_prediction,
+            'operation_advice': self.operation_advice,
+            'confidence_level': self.confidence_level,
+            'dashboard': dashboard_dict,
+            'trend_analysis': self.trend_analysis,
+            'short_term_outlook': self.short_term_outlook,
+            'medium_term_outlook': self.medium_term_outlook,
+            'technical_analysis': self.technical_analysis,
+            'ma_analysis': self.ma_analysis,
+            'volume_analysis': self.volume_analysis,
+            'pattern_analysis': self.pattern_analysis,
+            'fundamental_analysis': self.fundamental_analysis,
+            'sector_position': self.sector_position,
+            'company_highlights': self.company_highlights,
+            'news_summary': self.news_summary,
+            'market_sentiment': self.market_sentiment,
+            'hot_topics': self.hot_topics,
+            'analysis_summary': self.analysis_summary,
+            'key_points': self.key_points,
+            'risk_warning': self.risk_warning,
+            'buy_reason': self.buy_reason,
+            'search_performed': bool(self.search_performed),
+            'data_sources': self.data_sources,
+            'success': bool(self.success),
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class DatabaseManager:
     """
     数据库管理器 - 单例模式
@@ -484,6 +598,111 @@ class DatabaseManager:
             return "短期走弱 🔽"
         else:
             return "震荡整理 ↔️"
+    
+    def save_analysis_result(self, result) -> bool:
+        """
+        保存 AI 分析结果到数据库
+        
+        Args:
+            result: AnalysisResult 对象
+            
+        Returns:
+            是否保存成功
+        """
+        import json
+        
+        try:
+            with self.get_session() as session:
+                # 序列化 dashboard 为 JSON 字符串
+                dashboard_json = None
+                if hasattr(result, 'dashboard') and result.dashboard:
+                    dashboard_json = json.dumps(result.dashboard, ensure_ascii=False)
+                
+                # 创建分析结果记录
+                record = AnalysisResultDB(
+                    code=result.code,
+                    name=result.name,
+                    sentiment_score=result.sentiment_score,
+                    trend_prediction=result.trend_prediction,
+                    operation_advice=result.operation_advice,
+                    confidence_level=result.confidence_level,
+                    dashboard=dashboard_json,
+                    trend_analysis=getattr(result, 'trend_analysis', ''),
+                    short_term_outlook=getattr(result, 'short_term_outlook', ''),
+                    medium_term_outlook=getattr(result, 'medium_term_outlook', ''),
+                    technical_analysis=getattr(result, 'technical_analysis', ''),
+                    ma_analysis=getattr(result, 'ma_analysis', ''),
+                    volume_analysis=getattr(result, 'volume_analysis', ''),
+                    pattern_analysis=getattr(result, 'pattern_analysis', ''),
+                    fundamental_analysis=getattr(result, 'fundamental_analysis', ''),
+                    sector_position=getattr(result, 'sector_position', ''),
+                    company_highlights=getattr(result, 'company_highlights', ''),
+                    news_summary=getattr(result, 'news_summary', ''),
+                    market_sentiment=getattr(result, 'market_sentiment', ''),
+                    hot_topics=getattr(result, 'hot_topics', ''),
+                    analysis_summary=getattr(result, 'analysis_summary', ''),
+                    key_points=getattr(result, 'key_points', ''),
+                    risk_warning=getattr(result, 'risk_warning', ''),
+                    buy_reason=getattr(result, 'buy_reason', ''),
+                    raw_response=getattr(result, 'raw_response', None),
+                    search_performed=int(getattr(result, 'search_performed', False)),
+                    data_sources=getattr(result, 'data_sources', ''),
+                    success=int(getattr(result, 'success', True)),
+                    error_message=getattr(result, 'error_message', None),
+                )
+                
+                session.add(record)
+                session.commit()
+                
+                logger.info(f"保存分析结果成功: {result.code} - {result.name} - {result.operation_advice}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"保存分析结果失败: {e}")
+            return False
+    
+    def get_analysis_results(
+        self,
+        code: Optional[str] = None,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        获取分析结果
+        
+        Args:
+            code: 股票代码（可选，不指定则查询所有）
+            limit: 返回记录数
+            
+        Returns:
+            分析结果列表
+        """
+        with self.get_session() as session:
+            query = session.query(AnalysisResultDB).order_by(desc(AnalysisResultDB.created_at))
+            
+            if code:
+                query = query.filter(AnalysisResultDB.code == code)
+            
+            results = query.limit(limit).all()
+            
+            return [result.to_dict() for result in results]
+    
+    def get_latest_analysis_result(self, code: str) -> Optional[Dict[str, Any]]:
+        """
+        获取指定股票的最新分析结果
+        
+        Args:
+            code: 股票代码
+            
+        Returns:
+            最新分析结果（字典格式）
+        """
+        with self.get_session() as session:
+            result = session.query(AnalysisResultDB)\
+                .filter(AnalysisResultDB.code == code)\
+                .order_by(desc(AnalysisResultDB.created_at))\
+                .first()
+            
+            return result.to_dict() if result else None
 
 
 # 便捷函数
